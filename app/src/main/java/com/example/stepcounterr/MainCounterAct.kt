@@ -15,15 +15,11 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.fitness.Fitness
 import com.google.android.gms.fitness.FitnessOptions
 import com.google.android.gms.fitness.data.DataType
-import com.google.android.gms.fitness.request.DataReadRequest
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
 class MainCounterAct : AppCompatActivity() {
-    private val GOOGLE_FIT_PERMISSIONS_REQUEST_CODE: Int = 102
-    private val MY_PERMISSIONS_REQUEST_ACTIVITY_RECOGNITION: Int = 101
+    private val _googleFitPermissionsRequestCode: Int = 102
+    private val _myPermissionRequestActivityRecognition: Int = 101
     private lateinit var fitnessOptions: FitnessOptions
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -46,7 +42,7 @@ class MainCounterAct : AppCompatActivity() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 ActivityCompat.requestPermissions(this,
                     arrayOf(android.Manifest.permission.ACTIVITY_RECOGNITION, android.Manifest.permission.ACCESS_FINE_LOCATION),
-                    MY_PERMISSIONS_REQUEST_ACTIVITY_RECOGNITION)
+                    _myPermissionRequestActivityRecognition)
             }
         }
 
@@ -60,7 +56,7 @@ class MainCounterAct : AppCompatActivity() {
         if (!GoogleSignIn.hasPermissions(account, fitnessOptions)) {
             GoogleSignIn.requestPermissions(
                 this, // your activity
-                GOOGLE_FIT_PERMISSIONS_REQUEST_CODE, // e.g. 1
+                _googleFitPermissionsRequestCode, // e.g. 1
                 account,
                 fitnessOptions)
         } else {
@@ -71,24 +67,21 @@ class MainCounterAct : AppCompatActivity() {
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun accessGoogleFit() {
-        val end = LocalDateTime.now()
-        val start = end.minusYears(1)
-        val endSeconds = end.atZone(ZoneId.systemDefault()).toEpochSecond()
-        val startSeconds = start.atZone(ZoneId.systemDefault()).toEpochSecond()
+        // Record fitness data:
+        // 1. The Recording API lets your app request automated storage of sensor data in a battery-efficient manner by creating subscriptions
+        // 2. Enables low-battery, always-on background collection of sensor data into the Google Fit store.
+        subscribeToFitnessData()
+    }
 
-        val readRequest = DataReadRequest.Builder()
-            .aggregate(DataType.AGGREGATE_STEP_COUNT_DELTA)
-            .setTimeRange(startSeconds, endSeconds, TimeUnit.SECONDS)
-            .bucketByTime(1, TimeUnit.DAYS)
-            .build()
-        val account = GoogleSignIn.getAccountForExtension(this, fitnessOptions)
-        Fitness.getHistoryClient(this, account)
-            .readData(readRequest)
+    private fun subscribeToFitnessData() {
+        Fitness.getRecordingClient(this, GoogleSignIn.getAccountForExtension(this, fitnessOptions))
+            .subscribe(DataType.TYPE_STEP_COUNT_DELTA)
             .addOnSuccessListener {
-                // Use response data here
-                Log.i("Logger", "OnSuccess()")
+                Log.e("Logger", "Successfully subscribed!")
             }
-            .addOnFailureListener { e -> Log.d("Logger", "OnFailure()", e) }
+            .addOnFailureListener {
+                Log.e("Logger", "There was a problem subscribing: $it")
+            }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -96,13 +89,15 @@ class MainCounterAct : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         when (resultCode) {
             Activity.RESULT_OK -> when (requestCode) {
-                GOOGLE_FIT_PERMISSIONS_REQUEST_CODE -> accessGoogleFit()
+                _googleFitPermissionsRequestCode -> accessGoogleFit()
                 else -> {
                     // Result wasn't from Google Fit
+                    Log.e("Logger", "Result wasn't from Google Fit")
                 }
             }
             else -> {
                 // Permission not granted
+                Log.e("Logger", "Permission not granted")
             }
         }
     }
