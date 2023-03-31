@@ -15,6 +15,9 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.fitness.Fitness
 import com.google.android.gms.fitness.FitnessOptions
 import com.google.android.gms.fitness.data.DataType
+import com.google.android.gms.fitness.request.OnDataPointListener
+import com.google.android.gms.fitness.request.SensorRequest
+import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
 class MainCounterAct : AppCompatActivity() {
@@ -36,29 +39,38 @@ class MainCounterAct : AppCompatActivity() {
         simpleBarChart.setMinValue(0)
 
         // Step 1: Check Permission ACTIVITY_RECOGNITION & ACCESS_FINE_LOCATION
-        if (ContextCompat.checkSelfPermission(this , android.Manifest.permission.ACTIVITY_RECOGNITION)
-            != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.ACTIVITY_RECOGNITION
+            )
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             // Permission is not granted
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                ActivityCompat.requestPermissions(this,
-                    arrayOf(android.Manifest.permission.ACTIVITY_RECOGNITION, android.Manifest.permission.ACCESS_FINE_LOCATION),
-                    _myPermissionRequestActivityRecognition)
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(
+                        android.Manifest.permission.ACTIVITY_RECOGNITION,
+                        android.Manifest.permission.ACCESS_FINE_LOCATION
+                    ),
+                    _myPermissionRequestActivityRecognition
+                )
             }
         }
 
-             fitnessOptions = FitnessOptions.builder()
+        // Register FitnessOption & Login Account Google
+        fitnessOptions = FitnessOptions.builder()
             .addDataType(DataType.TYPE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_READ)
             .addDataType(DataType.AGGREGATE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_READ)
             .build()
-
         val account = GoogleSignIn.getAccountForExtension(this, fitnessOptions)
-
         if (!GoogleSignIn.hasPermissions(account, fitnessOptions)) {
             GoogleSignIn.requestPermissions(
                 this, // your activity
                 _googleFitPermissionsRequestCode, // e.g. 1
                 account,
-                fitnessOptions)
+                fitnessOptions
+            )
         } else {
             accessGoogleFit()
         }
@@ -71,6 +83,32 @@ class MainCounterAct : AppCompatActivity() {
         // 1. The Recording API lets your app request automated storage of sensor data in a battery-efficient manner by creating subscriptions
         // 2. Enables low-battery, always-on background collection of sensor data into the Google Fit store.
         subscribeToFitnessData()
+        readStepsRealTime()
+    }
+
+    private fun readStepsRealTime() {
+        val listener = OnDataPointListener { dataPoint ->
+            for (field in dataPoint.dataType.fields) {
+                val value = dataPoint.getValue(field)
+                Log.i("Logger", "Detected DataPoint field: ${field.name}")
+                Log.i("Logger", "Detected DataPoint value: $value")
+            }
+        }
+
+        Fitness.getSensorsClient(this, GoogleSignIn.getAccountForExtension(this, fitnessOptions))
+            .add(
+                SensorRequest.Builder()
+                    .setDataType(DataType.TYPE_STEP_COUNT_DELTA)
+                    .setSamplingRate(5, TimeUnit.SECONDS)
+                    .build(),
+                listener
+            )
+            .addOnSuccessListener {
+                Log.i("Logger", "Listener registered!")
+            }
+            .addOnFailureListener {
+                Log.e("Logger", "Listener not registered.", it)
+            }
     }
 
     private fun subscribeToFitnessData() {
