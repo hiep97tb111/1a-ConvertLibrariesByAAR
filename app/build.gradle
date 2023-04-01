@@ -44,5 +44,7 @@ dependencies {
     implementation 'com.github.BoyzDroizy:SimpleAndroidBarChart:1.0.1'
     implementation 'com.google.android.gms:play-services-fitness:20.0.0'
 
+    // Progressbar Circular: https://github.com/lopspower/CircularProgressBar
+    implementation 'com.mikhaellopez:circularprogressbar:3.1.0'
 
 }

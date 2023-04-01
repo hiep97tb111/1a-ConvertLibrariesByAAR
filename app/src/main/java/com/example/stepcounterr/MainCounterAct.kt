@@ -7,6 +7,7 @@ import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -17,26 +18,31 @@ import com.google.android.gms.fitness.FitnessOptions
 import com.google.android.gms.fitness.data.DataType
 import com.google.android.gms.fitness.request.OnDataPointListener
 import com.google.android.gms.fitness.request.SensorRequest
+import com.mikhaellopez.circularprogressbar.CircularProgressBar
 import java.util.concurrent.TimeUnit
-import kotlin.random.Random
 
 class MainCounterAct : AppCompatActivity() {
     private val _googleFitPermissionsRequestCode: Int = 102
     private val _myPermissionRequestActivityRecognition: Int = 101
     private lateinit var fitnessOptions: FitnessOptions
+    private lateinit var tvStepsCounter: TextView
+    private lateinit var circularProgressBar: CircularProgressBar
+    private var stepsCounter: Long = 0
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.act_main_counter)
 
+        initViews()
+
         // SimpleBarChart
-        val chartData = (12 downTo 1).map { Random.nextInt(10, 100) }.toMutableList()
-        val intervalData = (12 downTo 1).map { it }.toMutableList()
-        val simpleBarChart = findViewById<SimpleBarChart>(R.id.simpleBarChart)
-        simpleBarChart.setChartData(chartData, intervalData)
-        simpleBarChart.setMaxValue(100)
-        simpleBarChart.setMinValue(0)
+//        val chartData = (12 downTo 1).map { Random.nextInt(10, 100) }.toMutableList()
+//        val intervalData = (12 downTo 1).map { it }.toMutableList()
+//        val simpleBarChart = findViewById<SimpleBarChart>(R.id.simpleBarChart)
+//        simpleBarChart.setChartData(chartData, intervalData)
+//        simpleBarChart.setMaxValue(100)
+//        simpleBarChart.setMinValue(0)
 
         // Step 1: Check Permission ACTIVITY_RECOGNITION & ACCESS_FINE_LOCATION
         if (ContextCompat.checkSelfPermission(
@@ -77,6 +83,14 @@ class MainCounterAct : AppCompatActivity() {
 
     }
 
+    private fun initViews() {
+        tvStepsCounter = findViewById(R.id.tvStepsCounter)
+        circularProgressBar = findViewById(R.id.circularProgressBar)
+
+        // Lần đầu vào app sẽ gán giá trị mặc định. Sau khi lưu local sẽ gán giá trị ở local
+        tvStepsCounter.text = getString(R.string.steps_counter, stepsCounter)
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     private fun accessGoogleFit() {
         // Record fitness data:
@@ -92,6 +106,11 @@ class MainCounterAct : AppCompatActivity() {
                 val value = dataPoint.getValue(field)
                 Log.i("Logger", "Detected DataPoint field: ${field.name}")
                 Log.i("Logger", "Detected DataPoint value: $value")
+                stepsCounter += dataPoint.getValue(field).asInt()
+//                tvStepsCounter.text = stepsCounter.toString()
+//                tvStepsCounter.setTe
+                tvStepsCounter.text = getString(R.string.steps_counter, stepsCounter)
+                circularProgressBar.progress = stepsCounter.toFloat()
             }
         }
 
