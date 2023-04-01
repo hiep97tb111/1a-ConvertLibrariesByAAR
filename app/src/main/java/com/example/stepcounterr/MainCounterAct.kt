@@ -22,6 +22,7 @@ import com.mikhaellopez.circularprogressbar.CircularProgressBar
 import java.util.concurrent.TimeUnit
 
 class MainCounterAct : AppCompatActivity() {
+    private val _keyStepsCounter: String = "_keyStepsCounter"
     private val _googleFitPermissionsRequestCode: Int = 102
     private val _myPermissionRequestActivityRecognition: Int = 101
     private lateinit var fitnessOptions: FitnessOptions
@@ -87,8 +88,12 @@ class MainCounterAct : AppCompatActivity() {
         tvStepsCounter = findViewById(R.id.tvStepsCounter)
         circularProgressBar = findViewById(R.id.circularProgressBar)
 
-        // Lần đầu vào app sẽ gán giá trị mặc định. Sau khi lưu local sẽ gán giá trị ở local
+        // Save valueStepsCounter use SharedPreference
+        // When auto rotate not set steps = 0
+        // When open app then auto update valueStepsCounter
+        stepsCounter = PreferManager.getInstance(this)!!.readLong(Utils.convertDateToTimestamp(), 0)
         tvStepsCounter.text = getString(R.string.steps_counter, stepsCounter)
+        circularProgressBar.progress = stepsCounter.toFloat()
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -103,14 +108,18 @@ class MainCounterAct : AppCompatActivity() {
     private fun readStepsRealTime() {
         val listener = OnDataPointListener { dataPoint ->
             for (field in dataPoint.dataType.fields) {
+                // value represent steps in setSamplingRate(5, TimeUnit.SECONDS)
                 val value = dataPoint.getValue(field)
                 Log.i("Logger", "Detected DataPoint field: ${field.name}")
                 Log.i("Logger", "Detected DataPoint value: $value")
+
+                // Update Steps Counter
                 stepsCounter += dataPoint.getValue(field).asInt()
-//                tvStepsCounter.text = stepsCounter.toString()
-//                tvStepsCounter.setTe
-                tvStepsCounter.text = getString(R.string.steps_counter, stepsCounter)
-                circularProgressBar.progress = stepsCounter.toFloat()
+                // Update local
+                PreferManager.getInstance(this)!!.write(Utils.convertDateToTimestamp(), stepsCounter)
+                // Update Textview, CircularProgressbar
+                tvStepsCounter.text = getString(R.string.steps_counter, PreferManager.getInstance(this)!!.readLong(Utils.convertDateToTimestamp(), 0))
+                circularProgressBar.progress = PreferManager.getInstance(this)!!.readLong(Utils.convertDateToTimestamp(), 0).toFloat()
             }
         }
 
