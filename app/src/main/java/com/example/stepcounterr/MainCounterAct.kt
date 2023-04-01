@@ -15,20 +15,20 @@ import com.boyzdroizy.simpleandroidbarchart.SimpleBarChart
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.fitness.Fitness
 import com.google.android.gms.fitness.FitnessOptions
+import com.google.android.gms.fitness.data.DataSet
 import com.google.android.gms.fitness.data.DataType
+import com.google.android.gms.fitness.data.Field
 import com.google.android.gms.fitness.request.OnDataPointListener
 import com.google.android.gms.fitness.request.SensorRequest
 import com.mikhaellopez.circularprogressbar.CircularProgressBar
 import java.util.concurrent.TimeUnit
 
 class MainCounterAct : AppCompatActivity() {
-    private val _keyStepsCounter: String = "_keyStepsCounter"
     private val _googleFitPermissionsRequestCode: Int = 102
     private val _myPermissionRequestActivityRecognition: Int = 101
     private lateinit var fitnessOptions: FitnessOptions
     private lateinit var tvStepsCounter: TextView
     private lateinit var circularProgressBar: CircularProgressBar
-    private var stepsCounter: Long = 0
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,12 +88,6 @@ class MainCounterAct : AppCompatActivity() {
         tvStepsCounter = findViewById(R.id.tvStepsCounter)
         circularProgressBar = findViewById(R.id.circularProgressBar)
 
-        // Save valueStepsCounter use SharedPreference
-        // When auto rotate not set steps = 0
-        // When open app then auto update valueStepsCounter
-        stepsCounter = PreferManager.getInstance(this)!!.readLong(Utils.convertDateToTimestamp(), 0)
-        tvStepsCounter.text = getString(R.string.steps_counter, stepsCounter)
-        circularProgressBar.progress = stepsCounter.toFloat()
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -102,7 +96,31 @@ class MainCounterAct : AppCompatActivity() {
         // 1. The Recording API lets your app request automated storage of sensor data in a battery-efficient manner by creating subscriptions
         // 2. Enables low-battery, always-on background collection of sensor data into the Google Fit store.
         subscribeToFitnessData()
+
+        // Sensor API: Read data near-real-time
         readStepsRealTime()
+        // History API: method Read Data Daily Total
+        readDataDailyTotal()
+    }
+
+    private fun readDataDailyTotal() {
+        Fitness.getHistoryClient(this, GoogleSignIn.getAccountForExtension(this, fitnessOptions))
+            .readDailyTotal(DataType.TYPE_STEP_COUNT_DELTA)
+            .addOnSuccessListener {
+                // When open app then auto update valueStepsCounter
+                if(it.dataPoints.size != 0){
+                    val dataDailyTotal = it.dataPoints.first().getValue(Field.FIELD_STEPS)
+                    Log.e("Logger", "Steps Total: ${dataDailyTotal.asInt()}")
+                    tvStepsCounter.text = getString(R.string.steps_counter, dataDailyTotal.asInt())
+                    circularProgressBar.progress = dataDailyTotal.toString().toFloat()
+                    PreferManager.getInstance(this)!!.write(Utils.convertDateToTimestamp(), dataDailyTotal.asInt())
+                }else{
+                    tvStepsCounter.text = getString(R.string.steps_counter, 0)
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.w("Logger","There was an error reading data from Google Fit", e)
+            }
     }
 
     private fun readStepsRealTime() {
@@ -114,12 +132,14 @@ class MainCounterAct : AppCompatActivity() {
                 Log.i("Logger", "Detected DataPoint value: $value")
 
                 // Update Steps Counter
+                var stepsCounter = PreferManager.getInstance(this)!!.readInt(Utils.convertDateToTimestamp(), 0)
                 stepsCounter += dataPoint.getValue(field).asInt()
+
                 // Update local
                 PreferManager.getInstance(this)!!.write(Utils.convertDateToTimestamp(), stepsCounter)
                 // Update Textview, CircularProgressbar
-                tvStepsCounter.text = getString(R.string.steps_counter, PreferManager.getInstance(this)!!.readLong(Utils.convertDateToTimestamp(), 0))
-                circularProgressBar.progress = PreferManager.getInstance(this)!!.readLong(Utils.convertDateToTimestamp(), 0).toFloat()
+                tvStepsCounter.text = getString(R.string.steps_counter, PreferManager.getInstance(this)!!.readInt(Utils.convertDateToTimestamp(), 0))
+                circularProgressBar.progress = PreferManager.getInstance(this)!!.readInt(Utils.convertDateToTimestamp(), 0).toFloat()
             }
         }
 
