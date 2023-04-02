@@ -12,16 +12,25 @@ import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.boyzdroizy.simpleandroidbarchart.SimpleBarChart
+import com.example.stepcounterr.Utils.getListSundayOfMonth
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.fitness.Fitness
 import com.google.android.gms.fitness.FitnessOptions
+import com.google.android.gms.fitness.data.DataPoint
 import com.google.android.gms.fitness.data.DataSet
 import com.google.android.gms.fitness.data.DataType
 import com.google.android.gms.fitness.data.Field
+import com.google.android.gms.fitness.request.DataReadRequest
 import com.google.android.gms.fitness.request.OnDataPointListener
 import com.google.android.gms.fitness.request.SensorRequest
 import com.mikhaellopez.circularprogressbar.CircularProgressBar
+import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
+import kotlin.random.Random
 
 class MainCounterAct : AppCompatActivity() {
     private val _googleFitPermissionsRequestCode: Int = 102
@@ -101,7 +110,70 @@ class MainCounterAct : AppCompatActivity() {
         readStepsRealTime()
         // History API: method Read Data Daily Total
         readDataDailyTotal()
+
+        readDataDaysOfWeek()
     }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun readDataDaysOfWeek() {
+        // Read the data that's been collected throughout the past week.
+        val zoneId = ZoneId.of(ZoneId.systemDefault().toString())
+        var endTime: ZonedDateTime? = null
+        for(i in 0 until getListSundayOfMonth().size){
+            if(Utils.convertDateToTimestamp().toLong() <= SimpleDateFormat("yyyy-MM-dd").parse(getListSundayOfMonth()[i]).time){
+                endTime = ZonedDateTime.of(Utils.getYearMonthDay(getListSundayOfMonth()[i])[0].toInt(), Utils.getYearMonthDay(getListSundayOfMonth()[i])[1].toInt(), Utils.getYearMonthDay(getListSundayOfMonth()[i])[2].toInt(), 23, 59, 59,0, zoneId)
+                break
+            }
+        }
+//        val endTime = ZonedDateTime.of(2023, 4, 2, 23, 59, 59,0, zoneId)
+        val startTime = endTime!!.minusWeeks(1)
+        Log.e("Logger", "Range Start: $startTime")
+        Log.e("Logger", "Range End: $endTime")
+
+        val readRequest =
+            DataReadRequest.Builder()
+                .aggregate(DataType.AGGREGATE_STEP_COUNT_DELTA)
+                .bucketByTime(1, TimeUnit.DAYS)
+                .setTimeRange(startTime.toEpochSecond(), endTime.toEpochSecond(), TimeUnit.SECONDS)
+                .build()
+
+        Fitness.getHistoryClient(this, GoogleSignIn.getAccountForExtension(this, fitnessOptions))
+            .readData(readRequest)
+            .addOnSuccessListener { response ->
+                // The aggregate query puts datasets into buckets, so flatten into a
+                // single list of datasets
+                for (dataSet in response.buckets.flatMap { it.dataSets }) {
+                    dumpDataSet(dataSet)
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.w("Logger","There was an error reading data from Google Fit", e)
+            }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun dumpDataSet(dataSet: DataSet) {
+        Log.e("Logger", "Data returned for Data type: ${dataSet.dataType.name}")
+        for (dp in dataSet.dataPoints) {
+            Log.e("Logger","Data point:")
+            Log.e("Logger","\tType: ${dp.dataType.name}")
+            Log.e("Logger","\tStart: ${dp.getStartTimeString()}")
+            Log.e("Logger","\tEnd: ${dp.getEndTimeString()}")
+            for (field in dp.dataType.fields) {
+                Log.e("Logger","\tField: ${field.name} Value: ${dp.getValue(field)}")
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun DataPoint.getStartTimeString() = Instant.ofEpochSecond(this.getStartTime(TimeUnit.SECONDS))
+        .atZone(ZoneId.systemDefault())
+        .toLocalDateTime().toString()
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun DataPoint.getEndTimeString() = Instant.ofEpochSecond(this.getEndTime(TimeUnit.SECONDS))
+        .atZone(ZoneId.systemDefault())
+        .toLocalDateTime().toString()
 
     private fun readDataDailyTotal() {
         Fitness.getHistoryClient(this, GoogleSignIn.getAccountForExtension(this, fitnessOptions))
@@ -128,8 +200,8 @@ class MainCounterAct : AppCompatActivity() {
             for (field in dataPoint.dataType.fields) {
                 // value represent steps in setSamplingRate(5, TimeUnit.SECONDS)
                 val value = dataPoint.getValue(field)
-                Log.i("Logger", "Detected DataPoint field: ${field.name}")
-                Log.i("Logger", "Detected DataPoint value: $value")
+                Log.e("Logger", "Detected DataPoint field: ${field.name}")
+                Log.e("Logger", "Detected DataPoint value: $value")
 
                 // Update Steps Counter
                 var stepsCounter = PreferManager.getInstance(this)!!.readInt(Utils.convertDateToTimestamp(), 0)
@@ -152,7 +224,7 @@ class MainCounterAct : AppCompatActivity() {
                 listener
             )
             .addOnSuccessListener {
-                Log.i("Logger", "Listener registered!")
+                Log.e("Logger", "Listener registered!")
             }
             .addOnFailureListener {
                 Log.e("Logger", "Listener not registered.", it)
