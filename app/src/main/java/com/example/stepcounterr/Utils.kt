@@ -1,6 +1,5 @@
 package com.example.stepcounterr
 
-import android.util.Log
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -9,6 +8,7 @@ object Utils {
         val dateFormat  = SimpleDateFormat("yyyy-MM-dd")
         val date = Date()
         val currentTime = dateFormat.format(date)
+//        val timestamp = dateFormat.parse("2023-04-02") as Date
         val timestamp = dateFormat.parse(currentTime) as Date
         return timestamp.time.toString()
     }

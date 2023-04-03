@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "StepCounter"
 include ':app'
+include ':simpleandroidbarchart'

@@ -38,6 +38,8 @@ class MainCounterAct : AppCompatActivity() {
     private lateinit var fitnessOptions: FitnessOptions
     private lateinit var tvStepsCounter: TextView
     private lateinit var circularProgressBar: CircularProgressBar
+    private lateinit var simpleBarChart: SimpleBarChart
+    private var listDataDaysOfWeek = mutableListOf<Int>()
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,12 +49,10 @@ class MainCounterAct : AppCompatActivity() {
         initViews()
 
         // SimpleBarChart
-//        val chartData = (12 downTo 1).map { Random.nextInt(10, 100) }.toMutableList()
-//        val intervalData = (12 downTo 1).map { it }.toMutableList()
-//        val simpleBarChart = findViewById<SimpleBarChart>(R.id.simpleBarChart)
+//        val chartData = (7 downTo 1).map { 1000 }.toMutableList()
+//        val intervalData = (1 downTo 1).map { it }.toMutableList()
 //        simpleBarChart.setChartData(chartData, intervalData)
-//        simpleBarChart.setMaxValue(100)
-//        simpleBarChart.setMinValue(0)
+
 
         // Step 1: Check Permission ACTIVITY_RECOGNITION & ACCESS_FINE_LOCATION
         if (ContextCompat.checkSelfPermission(
@@ -96,6 +96,7 @@ class MainCounterAct : AppCompatActivity() {
     private fun initViews() {
         tvStepsCounter = findViewById(R.id.tvStepsCounter)
         circularProgressBar = findViewById(R.id.circularProgressBar)
+        simpleBarChart = findViewById(R.id.simpleBarChart)
 
     }
 
@@ -143,26 +144,31 @@ class MainCounterAct : AppCompatActivity() {
                 // The aggregate query puts datasets into buckets, so flatten into a
                 // single list of datasets
                 for (dataSet in response.buckets.flatMap { it.dataSets }) {
-                    dumpDataSet(dataSet)
+                    Log.e("Logger", "Data returned for Data type: ${dataSet.dataType.name}")
+                    for (dp in dataSet.dataPoints) {
+                        Log.e("Logger","Data point:")
+                        Log.e("Logger","\tType: ${dp.dataType.name}")
+                        Log.e("Logger","\tStart: ${dp.getStartTimeString()}")
+                        Log.e("Logger","\tEnd: ${dp.getEndTimeString()}")
+                        for (field in dp.dataType.fields) {
+                            Log.e("Logger","\tField: ${field.name} Value: ${dp.getValue(field)}")
+                            listDataDaysOfWeek.add(dp.getValue(field).asInt())
+                        }
+                    }
                 }
+
+                Log.e("Logger Size: ", listDataDaysOfWeek.size.toString())
+                if(listDataDaysOfWeek.size < 7){
+                    for(i in 0 until (7 - listDataDaysOfWeek.size)){
+                        listDataDaysOfWeek.add(0)
+                    }
+                }
+                val intervalData = (1 downTo 1).map { it }.toMutableList()
+                simpleBarChart.setChartData(listDataDaysOfWeek , intervalData)
             }
             .addOnFailureListener { e ->
                 Log.w("Logger","There was an error reading data from Google Fit", e)
             }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun dumpDataSet(dataSet: DataSet) {
-        Log.e("Logger", "Data returned for Data type: ${dataSet.dataType.name}")
-        for (dp in dataSet.dataPoints) {
-            Log.e("Logger","Data point:")
-            Log.e("Logger","\tType: ${dp.dataType.name}")
-            Log.e("Logger","\tStart: ${dp.getStartTimeString()}")
-            Log.e("Logger","\tEnd: ${dp.getEndTimeString()}")
-            for (field in dp.dataType.fields) {
-                Log.e("Logger","\tField: ${field.name} Value: ${dp.getValue(field)}")
-            }
-        }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -258,5 +264,10 @@ class MainCounterAct : AppCompatActivity() {
                 Log.e("Logger", "Permission not granted")
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        listDataDaysOfWeek.clear()
     }
 }
